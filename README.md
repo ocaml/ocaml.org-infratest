@@ -20,6 +20,7 @@ What is tested
 ==============
 
 We test has much things has possible:
+
 * forge.o.o:
   * landing page
   * project test-darcs: read-only access, write access, VCS viewer
@@ -53,6 +54,7 @@ Setting up the test environment
 TODO: generalize HAS_SSH_ACCESS
 
 Setting up a specific user account:
+
 1. Goto forge.ocamlcore.org.
 2. Create a user "test-$USER".
 3. Enter a valid email.
@@ -61,4 +63,5 @@ Setting up a specific user account:
 6. Request for your new user to be added to project test-darcs, test-git, test-svn.
 7. Wait for effective addition to the projects.
 8. Create a file test-ini.sh at the top, with the following content:
+
 TODO
