@@ -59,9 +59,14 @@ Setting up a specific user account:
 2. Create a user "test-$USER".
 3. Enter a valid email.
 4. Wait for account creation.
-5. TODO: create a ssh-key.
-6. Request for your new user to be added to project test-darcs, test-git, test-svn.
-7. Wait for effective addition to the projects.
-8. Create a file test-ini.sh at the top, with the following content:
+5. Create a ssh-key "ssh-keygen -f test-$USER".
+6. Add your SSH key to your
+   [account](https://forge.ocamlcore.org/account/editsshkeys.php).
+7. Rename the file "test-$USER" to "test-$USER.key".
+8. Wait for your SSH key to become effective (i.e. you are able to login into
+   ssh.ocamlcore.org with "test-$USER" and your SSH key).
+9. Request for your new user to be added to project test-darcs, test-git, test-svn.
+10. Wait for effective addition to the projects.
+11. Create a file vars.sh at the top, with the following content:
 
 TODO
