@@ -3,6 +3,7 @@
 set -e
 
 readonly HAS_SSH_ACCESS=true
+readonly HAS_SSH_ADMIN_ACCESS=true
 readonly LONG_TEST=true
 
 ERROR_CODE=0
@@ -40,7 +41,7 @@ ok () {
   echo -e " ${fg_green}OK${reset}"
 }
 
-rm failure.stamp || true
+rm -f failure.stamp || true
 
 ko () {
   echo -e " ${fg_red}KO${reset}"
@@ -57,28 +58,6 @@ act () {
 
 no_act () {
   if ! logexec "$@" ; then
-    ok
-  else
-    ko
-  fi
-}
-
-port_test () {
-  HOST=$1
-  PORT=$2
-  echo -n "Testing access of $HOST:$PORT..."
-  if nc $HOST $PORT < /dev/null > /dev/null; then
-    ok
-  else
-    ko
-  fi
-}
-
-no_port_test () {
-  HOST=$1
-  PORT=$2
-  echo -n "Testing non-access of $HOST:$PORT..."
-  if ! nc $HOST $PORT < /dev/null > /dev/null; then
     ok
   else
     ko
@@ -125,21 +104,60 @@ This message is a test to check that the mailing list system is working.
 Please ignore.
 EOF
 
-if $LONG_TEST; then
-  port_test forge.ocamlcore.org 21 # FTP
-fi
-port_test forge.ocamlcore.org 25 # SMTP
-port_test forge.ocamlcore.org 53 # DNS
-port_test forge.ocamlcore.org 80 # HTTP
-port_test forge.ocamlcore.org 443 # HTTPS
-port_test forge.ocamlcore.org 2022 # SSH for admin
-if $LONG_TEST; then
-  no_port_test forge.ocamlcore.org 5432 # postgres
-fi
+SCANNED_HOST="none"
+tmp_port_scan () {
+  SCANNED_HOST="$1"
+  logexec nmap -PS -oG "$TMP1" "$SCANNED_HOST"
+}
+
+test_port_opened () {
+  local PORT="$1"
+  echo -n "Port $PORT opened on $SCANNED_HOST..."
+  if logexec grep "$PORT/open" "$TMP1"; then
+    ok
+  else
+    ko
+  fi
+}
+
+test_port_closed () {
+  local PORT="$1"
+  echo -n "Port $PORT closed on $SCANNED_HOST..."
+  if ! logexec grep "$PORT/open" "$TMP1"; then
+    ok
+  else
+    ko
+  fi
+}
+
+test_max_total_ports () {
+  local EXPECTED_NUMBER="$1"
+  echo -n "Expecting $EXPECTED_NUMBER ports opened on $SCANNED_HOST..."
+  local ACTUAL_NUMBER=$(grep -o , "$TMP1" | wc -l)
+  if [ "$EXPECTED_NUMBER" -ge "$ACTUAL_NUMBER" ]; then
+    ok
+  else
+    ko
+  fi
+}
+
+tmp_port_scan forge.ocamlcore.org
+test_port_opened 21 # FTP
+test_port_opened 25 # SMTP
+test_port_opened 53 # DNS
+test_port_opened 80 # HTTP
+test_port_opened 443 # HTTPS
+test_port_closed 5432 # postgres
+test_max_total_ports 9
 
 if $HAS_SSH_ACCESS; then
   echo -n "Connecting to ssh.o.o."
   act ssh ssh.ocamlcore.org true
+fi
+
+if $HAS_SSH_ADMIN_ACCESS; then
+  echo -n "Connecting to o.o."
+  act ssh ocamlcore.org true
 fi
 
 # Web tests
@@ -272,7 +290,7 @@ if $HAS_SSH_ACCESS; then
   tmpdir_enter
   echo -n "Checkout $SVN_SCM_REPO."
   act svn checkout "$SVN_SCM_REPO"
-  pushd "trunk" 2> /dev/null
+  pushd "trunk" > /dev/null
   echo $MAGIC_NUMBER > test.txt
   logexec svn add test.txt || true
   echo -n "Push data to $SVN_SCM_REPO."
@@ -307,6 +325,21 @@ tmp_contains "sekred: Password manager for automatic installation."
 
 tmp_fetch "$OASIS_DB_ROOT/api/0.1/sexp/pkg/list"
 tmp_contains "sekred is listed" "sekred"
+
+
+# Robots presence
+tmp_fetch "http://forge.ocamlcore.org/robots.txt"
+tmp_contains "robots content of forge.o.o" "Disallow: /softwaremap/"
+
+tmp_fetch "https://forge.ocamlcore.org/robots.txt"
+tmp_contains "robots content of forge.o.o" "Disallow: /softwaremap/"
+
+tmp_fetch "http://darcs.ocamlcore.org/robots.txt"
+tmp_contains "robots content of darcs.o.o" 'Disallow: /repos/\*/_darcs'
+
+tmp_fetch "http://git.ocamlcore.org/robots.txt"
+tmp_contains "robots content of git.o.o" "Disallow:"
+
 
 # TODO: test upload REST interface.
 
